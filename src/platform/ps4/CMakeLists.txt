@@ -91,11 +91,13 @@ ps4_compile_shader(quad.frag fragment)
 get_property(PS4_SHADER_BINARIES GLOBAL PROPERTY MGBA_PS4_SHADER_BINARIES)
 add_custom_target(mgba-ps4-shaders DEPENDS ${PS4_SHADER_BINARIES})
 
+add_library(ps4-compat STATIC ps4_compat.c)
+
 add_executable(${BINARY_NAME}-ps4.elf ${GUI_SRC} gui-font.c renderer.c main.c)
 add_dependencies(${BINARY_NAME}-ps4.elf mgba-ps4-shaders zlibstatic png_static)
 target_link_libraries(${BINARY_NAME}-ps4.elf PRIVATE
-	${BINARY_NAME} mgba-ps4-platform opengnm::opengnm c kernel
-	SceGnmDriver SceVideoOut SceUserService ScePad SceAudioOut SceSystemService)
+	${BINARY_NAME} mgba-ps4-platform opengnm::opengnm png_static zlibstatic c c_setjmp kernel
+	SceGnmDriver SceVideoOut SceUserService ScePad SceAudioOut SceSystemService ps4-compat)
 set_target_properties(${BINARY_NAME}-ps4.elf PROPERTIES
 	COMPILE_DEFINITIONS "${OS_DEFINES};${FEATURE_DEFINES};${FUNCTION_DEFINES}"
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

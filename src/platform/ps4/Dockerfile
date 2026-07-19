@@ -34,12 +34,47 @@ FROM openorbisofficial/toolchain@sha256:f752d09f9d3227c729ee069f29a05450bd8fa4ef
 
 ARG OPENGNM_COMMIT=e442acdb6de57962fa336f09c10d34cac0df8a71
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates cmake git make ninja-build \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates cmake git make ninja-build python3 \
 	&& rm -rf /var/lib/apt/lists/*
+RUN cat > /lib/OpenOrbisSDK/bin/linux/create-fself <<'EOF'
+#!/bin/sh
+set -e
+in="" out="" eboot="" paid="0x3800000000000011"
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-in=*) in="${1#*=}"; shift ;;
+		-out=*) out="${1#*=}"; shift ;;
+		-eboot=*) eboot="${1#*=}"; shift ;;
+		--paid) paid="$2"; shift 2 ;;
+		--paid=*) paid="${1#*=}"; shift ;;
+		*) shift ;;
+	esac
+done
+if [ -n "$eboot" ]; then
+	eboot_dir=$(dirname "$eboot")
+	eboot_base=$(basename "$eboot")
+	mkdir -p "$eboot_dir"
+	(
+		cd "$eboot_dir"
+		/lib/OpenOrbisSDK/bin/linux/create-eboot -in "$in" -paid "$paid"
+		if [ "$eboot_base" != "eboot.bin" ]; then
+			mv eboot.bin "$eboot_base"
+		fi
+	)
+fi
+if [ -n "$out" ]; then
+	cp "$in" "$out"
+fi
+EOF
+RUN chmod +x /lib/OpenOrbisSDK/bin/linux/create-fself
+COPY src/platform/ps4/create-gp4 /lib/OpenOrbisSDK/bin/linux/create-gp4
+RUN chmod +x /lib/OpenOrbisSDK/bin/linux/create-gp4
 COPY --from=tools /usr/local/bin/glslc /usr/local/bin/glslc
 COPY --from=tools /usr/local/bin/psbc /usr/local/bin/psbc
+COPY src/platform/ps4/opengnm-orbis-stubs.patch /tmp/opengnm-orbis-stubs.patch
 RUN git clone https://github.com/bizkut/OpenGNM.git /opt/opengnm && \
-	cd /opt/opengnm && git checkout "${OPENGNM_COMMIT}"
+	cd /opt/opengnm && git checkout "${OPENGNM_COMMIT}" && \
+	git apply /tmp/opengnm-orbis-stubs.patch
 RUN useradd --create-home --shell /bin/bash mgba && mkdir -p /home/mgba/src && \
 	chown -R mgba:mgba /home/mgba /opt/opengnm
 USER mgba

@@ -1,0 +1,26 @@
+diff --git a/src/driver_orbis.c b/src/driver_orbis.c
+index 9af768c..332065a 100644
+--- a/src/driver_orbis.c
++++ b/src/driver_orbis.c
+@@ -109,9 +109,8 @@ static void submitlogi(const char* label, int32_t value) {
+ static void* resolvegnmdriversym(const char* name) {
+ 	OrbisKernelModule modules[128];
+ 	size_t available = 0;
+-	int result = sceKernelGetModuleList(
+-	    modules, sizeof(modules), &available
+-	);
++	int result = ((int(*)(OrbisKernelModule*, size_t, size_t*))
++	    sceKernelGetModuleList)(modules, sizeof(modules), &available);
+ 	if (result != 0) {
+ 		submitlogi("module list failed", result);
+ 		return NULL;
+@@ -127,7 +126,8 @@ static void* resolvegnmdriversym(const char* name) {
+ 		OrbisKernelModuleInfo info;
+ 		memset(&info, 0, sizeof(info));
+ 		info.size = sizeof(info);
+-		if (sceKernelGetModuleInfo(modules[i], &info) != 0) {
++		if (((int(*)(OrbisKernelModule, OrbisKernelModuleInfo*))
++		    sceKernelGetModuleInfo)(modules[i], &info) != 0) {
+ 			continue;
+ 		}
+ 		if (!strstr(info.name, "GnmDriver")) {

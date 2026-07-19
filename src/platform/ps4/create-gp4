@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Compatibility create-gp4 wrapper for OpenOrbis SDK.
+
+The pinned OpenOrbis toolchain image ships PkgTool.Core but not the legacy
+create-gp4 binary. This script reproduces the GP4 project generation so that
+build-ps4.sh can still produce a fake PKG.
+"""
+import argparse
+import os
+import sys
+import time
+from pathlib import PurePosixPath
+
+
+def build_rootdir(files):
+    """Build nested <dir> tags from file paths."""
+    tree = {}
+    for f in files:
+        if not f:
+            continue
+        parts = PurePosixPath(f.replace(os.sep, "/")).parent.parts
+        node = tree
+        for part in parts:
+            if part not in node:
+                node[part] = {}
+            node = node[part]
+
+    def render(name, children, indent):
+        pad = "\t" * indent
+        if not children:
+            return f'{pad}<dir targ_name="{name}" />'
+        child_xml = "\n".join(render(n, c, indent + 1) for n, c in sorted(children.items()))
+        return f'{pad}<dir targ_name="{name}">\n{child_xml}\n{pad}</dir>'
+
+    lines = [render(name, children, 2) for name, children in sorted(tree.items())]
+    return "\n".join(lines)
+
+
+def main(argv=None):
+    argv = list(argv if argv is not None else sys.argv[1:])
+    # build-ps4.sh uses single-dash long flags; normalize for argparse.
+    normalized = []
+    for arg in argv:
+        for flag in ("out", "content-id", "files", "path"):
+            if arg == f"-{flag}" or arg.startswith(f"-{flag}="):
+                arg = arg.replace(f"-{flag}", f"--{flag}", 1)
+        normalized.append(arg)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", default="homebrew.gp4")
+    parser.add_argument("--content-id", required=True)
+    parser.add_argument("--files", default="")
+    parser.add_argument("--path", default="")
+    args = parser.parse_args(normalized)
+
+    if args.files:
+        file_list = args.files.split()
+    elif args.path:
+        base = args.path.rstrip("/") + "/"
+        file_list = []
+        for root, _, filenames in os.walk(args.path):
+            for name in filenames:
+                rel = os.path.relpath(os.path.join(root, name), args.path)
+                file_list.append(rel.replace(os.sep, "/"))
+    else:
+        sys.exit("create-gp4: either --files or --path is required")
+
+    file_tags = []
+    for f in file_list:
+        if f:
+            f = f.replace(os.sep, "/")
+            file_tags.append(f'\t\t<file targ_path="{f}" orig_path="{f}" />')
+
+    rootdir_xml = build_rootdir(file_list)
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    gp4 = (
+        '<?xml version="1.0"?>\n'
+        '<psproject xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" fmt="gp4" version="1000">\n'
+        '\t<volume>\n'
+        '\t\t<volume_type>pkg_ps4_app</volume_type>\n'
+        '\t\t<volume_id>PS4VOLUME</volume_id>\n'
+        f'\t\t<volume_ts>{timestamp}</volume_ts>\n'
+        f'\t\t<package content_id="{args.content_id}" passcode="00000000000000000000000000000000"\n'
+        '\t\t\tstorage_type="digital50" app_type="full" />\n'
+        '\t\t<chunk_info chunk_count="1" scenario_count="1">\n'
+        '\t\t\t<chunks>\n'
+        '\t\t\t\t<chunk id="0" layer_no="0" label="Chunk #0" />\n'
+        '\t\t\t</chunks>\n'
+        '\t\t\t<scenarios default_id="0">\n'
+        '\t\t\t\t<scenario id="0" type="sp" initial_chunk_count="1" label="Scenario #0">0</scenario>\n'
+        '\t\t\t</scenarios>\n'
+        '\t\t</chunk_info>\n'
+        '\t</volume>\n'
+        '\t<files img_no="0">\n'
+        + "\n".join(file_tags) + "\n"
+        + '\t</files>\n'
+        + '\t<rootdir>\n'
+        + f"{rootdir_xml}\n"
+        + '\t</rootdir>\n'
+        + '</psproject>\n'
+    )
+
+    with open(args.out, "w") as f:
+        f.write(gp4)
+
+
+if __name__ == "__main__":
+    main()

@@ -330,6 +330,16 @@ if(DEFINED PS4)
 	set(ENABLE_SCRIPTING OFF CACHE BOOL "" FORCE)
 	set(USE_PTHREADS ON)
 	add_compile_definitions(PS4 TARGET_POSIX_IO _BSD_SOURCE _GNU_SOURCE)
+	# OpenOrbis SDK in the pinned toolchain omits these BSD types and some
+	# VideoOut constants, so provide them here. The numeric values match the
+	# PS4 SDK / shadPS4 reversed definitions.
+	add_compile_definitions(
+		u_short=uint16_t
+		u_int=uint32_t
+		ORBIS_VIDEO_OUT_TILING_MODE_TILE=0
+		ORBIS_VIDEO_OUT_TILING_MODE_LINEAR=1
+		ORBIS_VIDEO_OUT_ASPECT_RATIO_16_9=0
+		ORBIS_VIDEO_OUT_FLIP_60HZ=0)
 endif()
 
 if(NOT M_CORE_GBA)
@@ -417,6 +427,9 @@ if(USE_PTHREADS)
 
 			find_function(pthread_setname_np)
 			find_function(pthread_set_name_np)
+			if(PS4)
+				list(REMOVE_ITEM FUNCTION_DEFINES HAVE_PTHREAD_SET_NAME_NP HAVE_PTHREAD_SETNAME_NP)
+			endif()
 		endif()
 	endif()
 endif()
