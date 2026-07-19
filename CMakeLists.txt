@@ -84,6 +84,7 @@ if(NOT LIBMGBA_ONLY)
 	set(BUILD_GLES3 ON CACHE BOOL "Build with OpenGL|ES 3")
 	set(BUILD_DOCGEN OFF CACHE BOOL "Build the scripting API documentation generator")
 	set(BUILD_MAINTAINER_TOOLS OFF CACHE BOOL "Build tools only useful for maintainers")
+	set(BUILD_PS4_TESTS OFF CACHE BOOL "Build host-side tests for the PS4 platform helpers")
 	set(USE_EPOXY ON CACHE STRING "Build with libepoxy")
 	set(DISABLE_DEPS OFF CACHE BOOL "Build without dependencies")
 	set(DISTBUILD OFF CACHE BOOL "Build distribution packages")
@@ -294,7 +295,7 @@ if(PSP2)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format")
 endif()
 
-if(DEFINED 3DS OR DEFINED PSP2 OR DEFINED WII OR DEFINED SWITCH)
+if(DEFINED 3DS OR DEFINED PSP2 OR DEFINED WII OR DEFINED SWITCH OR DEFINED PS4)
 	set(IS_EMBEDDED ON)
 	set(ENABLE_DEBUGGERS OFF)
 	set(USE_SQLITE3 OFF)
@@ -305,6 +306,40 @@ endif()
 if(DEFINED SWITCH)
 	set(BUILD_GLES2 OFF CACHE BOOL "Build with OpenGL|ES 2" FORCE)
 	set(BUILD_GLES3 ON CACHE BOOL "Build with OpenGL|ES 3" FORCE)
+endif()
+
+if(DEFINED PS4)
+	set(BUILD_QT OFF CACHE BOOL "" FORCE)
+	set(BUILD_SDL OFF CACHE BOOL "" FORCE)
+	set(BUILD_GL OFF CACHE BOOL "" FORCE)
+	set(BUILD_GLES2 OFF CACHE BOOL "" FORCE)
+	set(BUILD_GLES3 OFF CACHE BOOL "" FORCE)
+	set(BUILD_SHARED OFF CACHE BOOL "" FORCE)
+	set(BUILD_STATIC ON CACHE BOOL "" FORCE)
+	set(BUILD_LTO OFF CACHE BOOL "" FORCE)
+	set(USE_EDITLINE OFF CACHE BOOL "" FORCE)
+	set(USE_FFMPEG OFF CACHE BOOL "" FORCE)
+	set(USE_MINIZIP OFF CACHE BOOL "" FORCE)
+	set(USE_LIBZIP OFF CACHE BOOL "" FORCE)
+	set(USE_SQLITE3 OFF CACHE BOOL "" FORCE)
+	set(USE_ELF OFF CACHE BOOL "" FORCE)
+	set(USE_LUA OFF CACHE BOOL "" FORCE)
+	set(USE_JSON_C OFF CACHE BOOL "" FORCE)
+	set(USE_FREETYPE OFF CACHE BOOL "" FORCE)
+	set(USE_DISCORD_RPC OFF CACHE BOOL "" FORCE)
+	set(ENABLE_SCRIPTING OFF CACHE BOOL "" FORCE)
+	set(USE_PTHREADS ON)
+	add_compile_definitions(PS4 TARGET_POSIX_IO _BSD_SOURCE _GNU_SOURCE)
+	# OpenOrbis SDK in the pinned toolchain omits these BSD types and some
+	# VideoOut constants, so provide them here. The numeric values match the
+	# PS4 SDK / shadPS4 reversed definitions.
+	add_compile_definitions(
+		u_short=uint16_t
+		u_int=uint32_t
+		ORBIS_VIDEO_OUT_TILING_MODE_TILE=0
+		ORBIS_VIDEO_OUT_TILING_MODE_LINEAR=1
+		ORBIS_VIDEO_OUT_ASPECT_RATIO_16_9=0
+		ORBIS_VIDEO_OUT_FLIP_60HZ=0)
 endif()
 
 if(NOT M_CORE_GBA)
@@ -353,6 +388,15 @@ endif()
 
 check_include_files("xlocale.h" HAVE_XLOCALE)
 
+# OpenOrbis try-compiles are static-library checks, so a missing function can
+# otherwise look available when its call is never linked. These two functions
+# are not declared or provided by the SDK; use mGBA's portable fallbacks.
+if(PS4)
+	set(HAVE_POPCOUNT32 OFF CACHE INTERNAL "" FORCE)
+	set(HAVE_SNPRINTF_L OFF CACHE INTERNAL "" FORCE)
+	list(REMOVE_ITEM FUNCTION_DEFINES HAVE_POPCOUNT32 HAVE_SNPRINTF_L)
+endif()
+
 set(ENABLE_VFS ON)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Generic")
@@ -383,6 +427,9 @@ if(USE_PTHREADS)
 
 			find_function(pthread_setname_np)
 			find_function(pthread_set_name_np)
+			if(PS4)
+				list(REMOVE_ITEM FUNCTION_DEFINES HAVE_PTHREAD_SET_NAME_NP HAVE_PTHREAD_SETNAME_NP)
+			endif()
 		endif()
 	endif()
 endif()
@@ -586,13 +633,22 @@ if(USE_FFMPEG)
 	endif()
 endif()
 
-if(WANT_ZLIB AND NOT USE_ZLIB)
+if(WANT_ZLIB AND (NOT USE_ZLIB OR (PS4 AND NOT TARGET zlibstatic)))
 	set(SKIP_INSTALL_ALL ON)
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/third-party/zlib zlib EXCLUDE_FROM_ALL)
+	if(NOT TARGET ZLIB::ZLIB)
+		add_library(ZLIB::ZLIB ALIAS zlibstatic)
+	endif()
+	# FindZLIB exposes one include directory, while bundled zlib keeps zlib.h in
+	# the source tree and generates zconf.h in the build tree. Co-locate the
+	# public header so bundled libpng's generator can include both.
+	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/third-party/zlib/zlib.h ${CMAKE_CURRENT_BINARY_DIR}/zlib/zlib.h COPYONLY)
 	set_target_properties(zlibstatic PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/zlib;${CMAKE_CURRENT_SOURCE_DIR}/src/third-party/zlib" POSITION_INDEPENDENT_CODE ON)
 	set(ZLIB_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src/third-party/zlib ${CMAKE_CURRENT_BINARY_DIR}/zlib)
-	set(ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/third-party/zlib ${CMAKE_CURRENT_BINARY_DIR}/zlib)
-	set(ZLIB_LIBRARY zlibstatic)
+	# Bundled libpng calls find_package(ZLIB) in its own directory. Keep these
+	# values in the cache so that cross builds do not rediscover a host zlib.
+	set(ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/zlib CACHE PATH "Bundled zlib headers" FORCE)
+	set(ZLIB_LIBRARY "${CMAKE_CURRENT_BINARY_DIR}/zlib/libz.a" CACHE FILEPATH "Bundled zlib archive" FORCE)
 	list(APPEND DEPENDENCY_LIB zlibstatic)
 	set(USE_ZLIB ON)
 endif()
@@ -613,7 +669,7 @@ if(HAVE_CRC32)
 	list(APPEND FUNCTION_DEFINES HAVE_CRC32)
 endif()
 
-if(WANT_PNG AND USE_ZLIB AND NOT USE_PNG)
+if(WANT_PNG AND USE_ZLIB AND (NOT USE_PNG OR (PS4 AND NOT TARGET png_static)))
 	set(PNG_STATIC ON CACHE BOOL "" FORCE)
 	set(PNG_SHARED OFF CACHE BOOL "" FORCE)
 	set(PNG_TESTS OFF CACHE BOOL "" FORCE)
@@ -893,6 +949,10 @@ source_group("Extra features" FILES ${FEATURE_SRC})
 source_group("Third-party code" FILES ${THIRD_PARTY_SRC})
 
 # Platform binaries
+if(BUILD_PS4_TESTS)
+	enable_testing()
+endif()
+
 if(DEFINED 3DS)
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/platform/3ds ${CMAKE_CURRENT_BINARY_DIR}/3ds)
 endif()
@@ -907,6 +967,12 @@ endif()
 
 if(DEFINED SWITCH)
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/platform/switch ${CMAKE_CURRENT_BINARY_DIR}/switch)
+endif()
+
+if(DEFINED PS4)
+	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/platform/ps4 ${CMAKE_CURRENT_BINARY_DIR}/ps4)
+elseif(BUILD_PS4_TESTS)
+	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/platform/ps4 ${CMAKE_CURRENT_BINARY_DIR}/ps4)
 endif()
 
 # Binaries
@@ -1239,6 +1305,8 @@ if(DISTBUILD)
 		set(CPACK_COMPONENTS_ALL ${BINARY_NAME} ${BINARY_NAME}-dbg ${BINARY_NAME}-psp2 ${BINARY_NAME}-perf)
 	elseif(SWITCH)
 		set(CPACK_COMPONENTS_ALL ${BINARY_NAME} ${BINARY_NAME}-dbg ${BINARY_NAME}-switch)
+	elseif(PS4)
+		set(CPACK_COMPONENTS_ALL ${BINARY_NAME} ${BINARY_NAME}-dbg ${BINARY_NAME}-ps4)
 	endif()
 endif()
 
@@ -1266,6 +1334,8 @@ elseif(WII)
 	cpack_add_component(${BINARY_NAME}-wii GROUP base)
 elseif(SWITCH)
 	cpack_add_component(${BINARY_NAME}-switch GROUP base)
+elseif(PS4)
+	cpack_add_component(${BINARY_NAME}-ps4 GROUP base)
 endif()
 
 if(BUILD_QT)

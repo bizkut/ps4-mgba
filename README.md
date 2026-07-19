@@ -96,6 +96,7 @@ Supported Platforms
 - Nintendo Switch
 - Wii
 - PlayStation Vita
+- PlayStation 4 (native OpenOrbis/OpenGNM frontend; release candidate)
 
 Other Unix-like platforms, such as OpenBSD, are known to work as well, but are untested and not fully supported.
 
@@ -149,6 +150,26 @@ After starting the Docker container, it will produce a `build-win32` directory w
 - mgba/windows:w64
 
 If you want to speed up the build process, consider adding the flag `-e MAKEFLAGS=-jN` to do a parallel build for mGBA with `N` number of CPU cores.
+
+#### PlayStation 4 building
+
+The PS4 frontend uses the OpenOrbis SDK and OpenGNM directly. Docker builds pin
+the SDK image and all shader/compiler source revisions, so no sibling checkout is
+required:
+
+	./build-ps4.sh docker-image
+	./build-ps4.sh docker-pkg
+
+The resulting ELF and PKG are written below `build-ps4/`. A local SDK can be
+used with `OO_PS4_TOOLCHAIN=/path/to/OpenOrbisSDK ./build-ps4.sh pkg`.
+The package uses title ID `MGBA00001` and stores ROMs, saves, states, screenshots,
+and configuration below `/data/mgba` on the console. ROM files are not included.
+
+The default DualShock 4 mapping is Cross/Circle for A/B, L1/R1 for L/R,
+Options for Start, touchpad click for Select, and the D-pad for directions.
+Display modes (pixel-perfect, aspect-fit, and stretch), nearest/bilinear
+filtering, screenshots, rumble, audio, and fast-forward are supported. Motion,
+camera, multiplayer, and keyboard entry are not part of this release candidate.
 
 #### *nix building
 

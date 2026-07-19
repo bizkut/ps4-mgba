@@ -235,13 +235,21 @@ void mGUIInit(struct mGUIRunner* runner, const char* port) {
 	mCoreConfigSetDefaultIntValue(&runner->config, "autosave", true);
 #endif
 	mCoreConfigSetDefaultIntValue(&runner->config, "showOSD", true);
+#ifdef PS4
+	mCoreConfigSetDefaultIntValue(&runner->config, "logLevel",
+		mLOG_FATAL | mLOG_ERROR | mLOG_WARN);
+#endif
 	mCoreConfigLoad(&runner->config);
 	mCoreConfigGetIntValue(&runner->config, "logLevel", &logger.logLevel);
 
 	char path[PATH_MAX];
 	mCoreConfigDirectory(path, PATH_MAX);
 	strncat(path, PATH_SEP "log", PATH_MAX - strlen(path));
+#ifdef PS4
+	logger.vf = VFileOpen(path, O_CREAT | O_WRONLY | O_TRUNC);
+#else
 	logger.vf = VFileOpen(path, O_CREAT | O_WRONLY | O_APPEND);
+#endif
 	mLogSetDefaultLogger(&logger.d);
 
 	const char* lastPath = mCoreConfigGetValue(&runner->config, "lastDirectory");
@@ -330,11 +338,15 @@ static void _log(struct mLogger* logger, int category, enum mLogLevel level, con
 
 static void _updateLoading(size_t read, size_t size, void* context) {
 	struct mGUIRunner* runner = context;
+	unsigned progress = 0;
+	if (size) {
+		progress = read >= size ? 100 : (unsigned) ((double) read * 100.0 / (double) size);
+	}
 	runner->params.drawStart();
 	if (runner->params.guiPrepare) {
 		runner->params.guiPrepare();
 	}
-	GUIFontPrintf(runner->params.font, runner->params.width / 2, (GUIFontHeight(runner->params.font) + runner->params.height) / 2, GUI_ALIGN_HCENTER, 0xFFFFFFFF, "Loading...%i%%", 100 * read / size);
+	GUIFontPrintf(runner->params.font, runner->params.width / 2, (GUIFontHeight(runner->params.font) + runner->params.height) / 2, GUI_ALIGN_HCENTER, 0xFFFFFFFF, "Loading...%u%%", progress);
 	if (runner->params.guiFinish) {
 		runner->params.guiFinish();
 	}
