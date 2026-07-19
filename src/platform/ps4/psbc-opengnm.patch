@@ -1,0 +1,197 @@
+diff --git a/cmd/psbc/main.c b/cmd/psbc/main.c
+index b21c323..79ff540 100644
+--- a/cmd/psbc/main.c
++++ b/cmd/psbc/main.c
+@@ -2,7 +2,171 @@
+ #include <stdio.h>
+ #include <string.h>
+ 
+-#include <gnm/pssl/types.h>
++#include <gnm_shaderbinary.h>
++
++/*
++ * PSSL binary types.
++ * OpenGNM dropped the gnm/pssl/ headers that the legacy freegnm repo provided.
++ * psbc's cmd/psbc/main.c only needs the on-disk PSSL binary layout structs
++ * (written verbatim via fwrite), so define them locally to match the
++ * freegnm gnm/pssl/types.h layout byte-for-byte.
++ */
++typedef enum {
++	PSSL_SHADER_VS = 0x0,
++	PSSL_SHADER_FS = 0x1,
++	PSSL_SHADER_CS = 0x2,
++	PSSL_SHADER_GS = 0x3,
++	PSSL_SHADER_HS = 0x4,
++	PSSL_SHADER_DS = 0x5,
++} PsslShaderType;
++
++typedef enum {
++	PSSL_CODE_IL = 0x0,
++	PSSL_CODE_ISA = 0x1,
++	PSSL_CODE_SCU = 0x2,
++} PsslCodeType;
++
++typedef enum {
++	PSSL_COMPILER_UNSPECIFIED = 0,
++	PSSL_COMPILER_ORBIS_PSSLC = 1,
++	PSSL_COMPILER_ORBIS_ESSLC = 2,
++	PSSL_COMPILER_ORBIS_WAVE = 3,
++	PSSL_COMPILER_ORBIS_CU_AS = 4,
++} PsslCompilerType;
++
++typedef enum {
++	PSSL_VSVAR_VERTEX = 0x0,
++	PSSL_VSVAR_EXPORT = 0x1,
++	PSSL_VSVAR_LOCAL = 0x2,
++	PSSL_VSVAR_DISPATCHDRAW = 0x3,
++	PSSL_VSVAR_EXPORTONCHIP = 0x4,
++} PsslVertexVariant;
++
++typedef enum {
++	PSSL_DSVAR_VERTEX = 0x0,
++	PSSL_DSVAR_EXPORT = 0x1,
++	PSSL_DSVAR_VERTEX_HS_ONBUFFER = 0x2,
++	PSSL_DSVAR_EXPORT_HS_ONBUFFER = 0x3,
++	PSSL_DSVAR_VERTEX_HS_DYNAMIC = 0x4,
++	PSSL_DSVAR_EXPORT_HS_DYNAMIC = 0x5,
++	PSSL_DSVAR_EXPORT_ONCHIP = 0x6,
++} PsslDomainVariant;
++
++typedef enum {
++	PSSL_GSVAR_ONBUFFER = 0x0,
++	PSSL_GSVAR_ONCHIP = 0x1,
++} PsslGeometryVariant;
++
++typedef enum {
++	PSSL_HSVAR_ONCHIP = 0x0,
++	PSSL_HSVAR_ONBUFFER = 0x1,
++	PSSL_HSVAR_DYNAMIC = 0x2,
++} PsslHullVariant;
++
++typedef enum {
++	PSSL_GSIO_TRI = 0x0,
++	PSSL_GSIO_LINE = 0x1,
++	PSSL_GSIO_POINT = 0x2,
++	PSSL_GSIO_ADJTRI = 0x3,
++	PSSL_GSIO_ADJLINE = 0x4,
++} PsslGsIoType;
++
++typedef enum {
++	PSSL_HSDSPATCH_ISOLINE = 0x0,
++	PSSL_HSDSPATCH_TRI = 0x1,
++	PSSL_HSDSPATCH_QUAD = 0x2,
++} PsslHsDsPatchType;
++
++typedef enum {
++	PSSL_HSTOPOLOGY_POINT = 0x0,
++	PSSL_HSTOPOLOGY_LINE = 0x1,
++	PSSL_HSTOPOLOGY_CWTRI = 0x2,
++	PSSL_HSTOPOLOGY_CCWTRI = 0x3,
++} PsslHsTopologyType;
++
++typedef enum {
++	PSSL_HSPARTITIONING_INTEGER = 0x0,
++	PSSL_HSPARTITIONING_POWEROF2 = 0x1,
++	PSSL_HSPARTITIONING_ODDFACTORIAL = 0x2,
++	PSSL_HSPARTITIONING_EVENFACTORIAL = 0x3,
++} PsslHsPartitioningType;
++
++typedef struct {
++	uint8_t vertexvariant;	  // PsslVertexVariant
++	uint8_t domainvariant;	  // PsslDomainVariant
++	uint8_t geometryvariant;  // PsslGeometryVariant
++	uint8_t hullvariant;	  // PsslHullVariant
++} PsslPipelineStage;
++_Static_assert(sizeof(PsslPipelineStage) == 0x4, "");
++
++typedef union {
++	struct {
++		uint16_t numthreads[3];
++	} cs;
++	struct {
++		uint16_t instance;
++		uint16_t maxvertexcount;
++		uint8_t inputtype;   // PsslGsIoType
++		uint8_t outputtype;  // PsslGsIoType
++		uint8_t patchsize;
++	} gs;
++	struct {
++		uint8_t patchtype;  // PsslHsDsPatchType
++		uint8_t inputcontrolpoints;
++	} ds;
++	struct {
++		uint8_t patchtype;  // PsslHsDsPatchType
++		uint8_t inputcontrolpoints;
++		uint8_t outputtopologytype;  // PsslHsTopologyType
++		uint8_t partitioningtype;    // PsslHsPartitioningType
++
++		uint8_t outputcontrolpoints;
++		uint8_t patchsize;
++		uint8_t _unused[2];
++
++		float maxtessfactor;
++	} hs;
++} PsslSystemAttributes;
++_Static_assert(sizeof(PsslSystemAttributes) == 0xC, "");
++
++typedef struct {
++	uint8_t vermajor;
++	uint8_t verminor;
++	uint16_t compiler_revision;
++
++	uint32_t association_hash0;
++	uint32_t association_hash1;
++
++	uint8_t shadertype;  // PsslShaderType
++	uint8_t codetype;    // PsslCodeType
++	uint8_t uses_srt;
++
++	// first 4 bits are a PsslCompilerType
++	// last 4 bits are unused
++	uint8_t compilertype;
++
++	uint32_t codesize;
++
++	PsslPipelineStage stageinfo;
++	PsslSystemAttributes sysattributeinfo;
++} PsslBinaryHeader;
++_Static_assert(sizeof(PsslBinaryHeader) == 0x24, "");
++
++typedef struct {
++	uint32_t numbufferresources;
++	uint32_t numconstants;
++	uint32_t numvariables;
++	uint32_t numsamplerresources;
++
++	uint8_t numinputattributes;
++	uint8_t numoutputattributes;
++	uint8_t numstreamout;
++	uint8_t _unused;
++
++	uint32_t valuetablesize;
++	uint32_t stringtablesize;
++} PsslBinaryParamInfo;
++_Static_assert(sizeof(PsslBinaryParamInfo) == 0x1c, "");
+ 
+ #include "aco_interface.h"
+ #include "amdgfxregs.h"
+diff --git a/config.mak b/config.mak
+index 37f6b6b..598adc8 100644
+--- a/config.mak
++++ b/config.mak
+@@ -9,6 +9,9 @@ SHARED_FLAGS=-Iinclude/ -I$(GNM_INCLUDE) -I$(VULKAN_INCLUDE) -I$(GL_INCLUDE) -Is
+ ifeq ($(shell uname -s),Darwin)
+ SHARED_FLAGS+=-D_DARWIN_C_SOURCE -DNO_FORMAT_ASM
+ endif
++ifeq ($(shell uname -s),Linux)
++SHARED_FLAGS+=-D_GNU_SOURCE
++endif
+ 
+ CC=cc
+ CXX=c++
+@@ -16,4 +19,4 @@ LD=c++
+ PYTHON=python3
+ CFLAGS=-std=gnu11 -Wall -O2 -g $(SHARED_FLAGS)
+ CXXFLAGS=-std=c++17 -Wall -O2 -g $(SHARED_FLAGS)
+-LDFLAGS=-lm
++LDFLAGS=-lm -lpthread
