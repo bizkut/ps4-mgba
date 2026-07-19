@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 AS tools
+FROM ubuntu:22.04 AS tools
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG SHADERC_COMMIT=d5f08ae5c5a9a45165578445cbd0f9adf0223448
