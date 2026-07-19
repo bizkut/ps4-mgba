@@ -20,13 +20,13 @@ RUN git clone https://github.com/google/shaderc.git && \
 	cmake -S . -B build -G Ninja -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release && \
 	cmake --build build --target glslc_exe --parallel && install -m 0755 build/glslc/glslc /usr/local/bin/glslc
 RUN git clone https://github.com/bizkut/psbc.git && \
-	cd psbc && git checkout "${PSBC_COMMIT}" && \
+	cd psbc && git checkout "${PSBC_COMMIT}" && cd .. && \
 	git clone https://gitgud.io/veiledmerc/freegnm.git freegnm && \
 	cd freegnm && git checkout "${FREEGNM_COMMIT}" && cd .. && \
 	git clone https://github.com/KhronosGroup/Vulkan-Headers.git Vulkan-Headers && \
 	cd Vulkan-Headers && git checkout "${VULKAN_HEADERS_COMMIT}" && cd .. && \
-	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFREEGNM_ROOT="$PWD/freegnm" -DVULKAN_HEADERS_ROOT="$PWD/Vulkan-Headers" && \
-	cmake --build build --parallel && install -m 0755 build/psbc /usr/local/bin/psbc
+	mkdir -p opengnm-psbc/include && \
+	make -C psbc -j"$(nproc)" && install -m 0755 psbc/psbc /usr/local/bin/psbc
 
 FROM openorbisofficial/toolchain@sha256:f752d09f9d3227c729ee069f29a05450bd8fa4ef5e785c0929ab8479f7dc4e64
 
