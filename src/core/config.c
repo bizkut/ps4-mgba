@@ -258,6 +258,9 @@ void mCoreConfigDirectory(char* out, size_t outLength) {
 #elif defined(PSP2)
 	snprintf(out, outLength, "ux0:data/%s", projectName);
 	sceIoMkdir(out, 0777);
+#elif defined(PS4)
+	strlcpy(out, "/data/mgba", outLength);
+	mkdir(out, 0755);
 #elif defined(GEKKO) || defined(__SWITCH__)
 	snprintf(out, outLength, "/%s", projectName);
 	mkdir(out, 0777);
@@ -297,7 +300,7 @@ void mCoreConfigPortableIniPath(char* out, size_t outLength) {
 	}
 	WideCharToMultiByte(CP_UTF8, 0, wpath, -1, out, outLength, 0, 0);
 	StringCchCatA(out, outLength, PATH_SEP "portable.ini");
-#elif defined(PSP2) || defined(GEKKO) || defined(__SWITCH__) || defined(__3DS__)
+#elif defined(PS4) || defined(PSP2) || defined(GEKKO) || defined(__SWITCH__) || defined(__3DS__)
 	UNUSED(outLength);
 	out[0] = '\0';
 #else

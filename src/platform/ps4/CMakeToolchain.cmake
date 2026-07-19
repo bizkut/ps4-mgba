@@ -1,0 +1,42 @@
+set(CMAKE_SYSTEM_NAME FreeBSD)
+set(CMAKE_SYSTEM_PROCESSOR x86_64)
+set(PS4 ON CACHE BOOL "Build for PlayStation 4" FORCE)
+
+if(NOT OO_PS4_TOOLCHAIN AND DEFINED ENV{OO_PS4_TOOLCHAIN})
+	set(OO_PS4_TOOLCHAIN "$ENV{OO_PS4_TOOLCHAIN}" CACHE PATH "OpenOrbis PS4 toolchain")
+endif()
+if(NOT OO_PS4_TOOLCHAIN)
+	message(FATAL_ERROR "OO_PS4_TOOLCHAIN is required")
+endif()
+
+find_program(PS4_CLANG NAMES clang-18 clang REQUIRED)
+find_program(PS4_CLANGXX NAMES clang++-18 clang++ REQUIRED)
+find_program(PS4_LLD NAMES ld.lld-18 ld.lld REQUIRED)
+
+set(CMAKE_C_COMPILER "${PS4_CLANG}")
+set(CMAKE_CXX_COMPILER "${PS4_CLANGXX}")
+set(CMAKE_LINKER "${PS4_LLD}")
+set(CMAKE_SYSROOT "${OO_PS4_TOOLCHAIN}")
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Compatibility floor for bundled dependencies")
+set(CMAKE_SKIP_RPATH ON CACHE BOOL "PS4 executables do not use host rpaths" FORCE)
+
+# Never discover host libraries while cross-compiling. This makes mGBA select
+# its bundled zlib and libpng instead of accepting unusable pkg-config results.
+set(ENV{PKG_CONFIG_LIBDIR} "${OO_PS4_TOOLCHAIN}/lib/pkgconfig")
+set(ENV{PKG_CONFIG_SYSROOT_DIR} "${OO_PS4_TOOLCHAIN}")
+set(ENV{PKG_CONFIG_PATH} "")
+
+set(PS4_COMPILE_FLAGS "--target=x86_64-ps4-elf -fPIC -isystem${OO_PS4_TOOLCHAIN}/include")
+set(CMAKE_C_FLAGS_INIT "${PS4_COMPILE_FLAGS}")
+set(CMAKE_CXX_FLAGS_INIT "${PS4_COMPILE_FLAGS}")
+
+set(CMAKE_C_LINK_EXECUTABLE
+	"<CMAKE_LINKER> -o <TARGET> <OBJECTS> -m elf_x86_64 -pie --script ${OO_PS4_TOOLCHAIN}/link.x --eh-frame-hdr -L${OO_PS4_TOOLCHAIN}/lib <LINK_LIBRARIES> ${OO_PS4_TOOLCHAIN}/lib/crt1.o ${OO_PS4_TOOLCHAIN}/lib/crti.o ${OO_PS4_TOOLCHAIN}/lib/crtn.o")
+set(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_C_LINK_EXECUTABLE}")
+
+set(CMAKE_FIND_ROOT_PATH "${OO_PS4_TOOLCHAIN}")
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
