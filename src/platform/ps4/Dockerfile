@@ -18,7 +18,7 @@ RUN git clone https://github.com/google/shaderc.git && \
 	cd shaderc && git checkout "${SHADERC_COMMIT}" && \
 	./utils/git-sync-deps && \
 	cmake -S . -B build -G Ninja -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release && \
-	cmake --build build --target glslc --parallel && install -m 0755 build/glslc /usr/local/bin/glslc
+	cmake --build build --target glslc_exe --parallel && install -m 0755 build/glslc/glslc /usr/local/bin/glslc
 RUN git clone https://github.com/bizkut/psbc.git && \
 	cd psbc && git checkout "${PSBC_COMMIT}" && \
 	git clone https://gitgud.io/veiledmerc/freegnm.git freegnm && \
