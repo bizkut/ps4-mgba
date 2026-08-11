@@ -81,6 +81,7 @@ jobs:
           - Built with the pinned OpenGNM toolchain and PS4 packaging pipeline.
           - Includes the `.pkg` installer for PS4 distribution.
           - Attachments are checksummed in the included `SHA256SUMS` file.
+          - Upload ROM files to `/data/mgba/roms` on your PS4 before launching.
 
           ## Contents
           - `mgba-ps4-*.pkg`
