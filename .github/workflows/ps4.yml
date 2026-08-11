@@ -79,13 +79,12 @@ jobs:
           This release contains the PS4 port of mGBA, a fast and accurate Game Boy Advance emulator.
 
           - Built with the pinned OpenGNM toolchain and PS4 packaging pipeline.
-          - Includes both the `.pkg` installer and `.elf` binary for distribution.
+          - Includes the `.pkg` installer for PS4 distribution.
           - Attachments are checksummed in the included `SHA256SUMS` file.
 
           ## Contents
           - `mgba-ps4-*.pkg`
-          - `mgba-ps4-*.elf`
           - `SHA256SUMS`
           - `THIRD_PARTY_NOTICES.txt`
           EOF
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "mGBA PS4 $GITHUB_REF_NAME" --notes-file /tmp/release-notes.md --prerelease mgba-ps4-*.pkg mgba-ps4-*.elf SHA256SUMS THIRD_PARTY_NOTICES.txt
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "mGBA PS4 $GITHUB_REF_NAME" --notes-file /tmp/release-notes.md --prerelease mgba-ps4-*.pkg SHA256SUMS THIRD_PARTY_NOTICES.txt
