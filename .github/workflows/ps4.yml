@@ -46,15 +46,13 @@ jobs:
           pkg=$(find build-ps4 -maxdepth 1 -name '*.pkg' -type f | head -n1)
           test -n "$pkg"
           cp "$pkg" "mgba-ps4-${SAFE_REF_NAME}.pkg"
-          cp build-ps4/mgba-ps4.elf "mgba-ps4-${SAFE_REF_NAME}.elf"
-          sha256sum mgba-ps4-${SAFE_REF_NAME}.pkg mgba-ps4-${SAFE_REF_NAME}.elf > SHA256SUMS
+          sha256sum mgba-ps4-${SAFE_REF_NAME}.pkg > SHA256SUMS
           printf 'OpenGNM and OpenOrbis sources are built in the pinned PS4 Docker image.\n' > THIRD_PARTY_NOTICES.txt
       - uses: actions/upload-artifact@v4
         with:
           name: mgba-ps4-${{ github.sha }}
           path: |
             mgba-ps4-*.pkg
-            mgba-ps4-*.elf
             SHA256SUMS
             THIRD_PARTY_NOTICES.txt
 
