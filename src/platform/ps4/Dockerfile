@@ -75,7 +75,16 @@ RUN cd /tmp/shaderc && rm -rf build && \
 	cmake --build build --target glslc_exe --parallel && \
 	install -m 0755 build/glslc/glslc /usr/local/bin/glslc && \
 	rm -rf /tmp/shaderc
-COPY --from=tools /usr/local/bin/psbc /usr/local/bin/psbc
+COPY --from=tools /opt/build/psbc /tmp/psbc
+COPY --from=tools /opt/build/OpenGNM /tmp/OpenGNM
+COPY --from=tools /opt/build/Vulkan-Headers /tmp/Vulkan-Headers
+COPY --from=tools /opt/build/SPIRV-Headers /tmp/SPIRV-Headers
+RUN find /tmp/psbc -type f \( -name '*.o' -o -name 'opengnm-psbc' \) -delete && \
+	printf '\nCXXFLAGS += -std=gnu++17\n' >> /tmp/psbc/config.mak && \
+	make -C /tmp/psbc -j"$(nproc)" PYTHON=python3 OPENGNM_INCLUDE=../OpenGNM/include VULKAN_INCLUDE=../Vulkan-Headers/include \
+		BLAKE3_SRCS="src/util/blake3/blake3.c src/util/blake3/blake3_dispatch.c src/util/blake3/blake3_portable.c" && \
+	install -m 0755 /tmp/psbc/opengnm-psbc /usr/local/bin/psbc && \
+	rm -rf /tmp/psbc /tmp/OpenGNM /tmp/Vulkan-Headers /tmp/SPIRV-Headers
 COPY src/platform/ps4/opengnm-orbis-stubs.patch /tmp/opengnm-orbis-stubs.patch
 RUN git clone https://github.com/PS4-OpenGNM/opengnm.git /opt/opengnm && \
 	cd /opt/opengnm && git checkout "${OPENGNM_COMMIT}" && \
