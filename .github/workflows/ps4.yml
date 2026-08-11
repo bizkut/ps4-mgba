@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned OpenGNM test dependency
-        run: git clone https://github.com/bizkut/OpenGNM.git ../opengnm && git -C ../opengnm checkout e442acdb6de57962fa336f09c10d34cac0df8a71
+        run: git clone https://github.com/bizkut/OpenGNM.git ../opengnm
       - name: Configure host helpers
         run: cmake -S . -B build-ps4-host-tests -DBUILD_PS4_TESTS=ON -DOPENGNM_ROOT="$GITHUB_WORKSPACE/../opengnm"
       - name: Build and test host helpers
