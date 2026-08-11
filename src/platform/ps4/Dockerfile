@@ -23,15 +23,15 @@ RUN git clone https://github.com/PS4-OpenGNM/opengnm-psbc.git psbc && \
 	cd psbc && git checkout "${PSBC_COMMIT}" && cd .. && \
 	git clone https://github.com/PS4-OpenGNM/opengnm.git OpenGNM && \
 	cd OpenGNM && git checkout "${OPENGNM_COMMIT}" && cd .. && \
-	git clone https://github.com/KhronosGroup/Vulkan-Headers.git Vulkan-Headers && \
-	cd Vulkan-Headers && git checkout "${VULKAN_HEADERS_COMMIT}" && cd .. && \
+	git clone https://github.com/KhronosGroup/Vulkan-Headers.git SPIRV-Headers && \
+	cd SPIRV-Headers && git checkout "${VULKAN_HEADERS_COMMIT}" && cd .. && \
 	mkdir -p opengnm-psbc/include && \
 	cat > psbc/config.mak <<'EOF'
 DESTDIR=/usr/local
 BINDIR=/bin
 
 OPENGNM_INCLUDE?=../OpenGNM/include
-VULKAN_INCLUDE?=../Vulkan-Headers/include
+VULKAN_INCLUDE?=../SPIRV-Headers/include
 
 SHARED_FLAGS=\
 	-Iinclude/ \
@@ -77,7 +77,7 @@ CXXFLAGS=-std=gnu17 -Wall -O2 -g $(SHARED_FLAGS)
 LDFLAGS=-lm -lpthread
 EOF
 
-RUN make -C psbc -j"$(nproc)" OPENGNM_INCLUDE=../OpenGNM/include VULKAN_INCLUDE=../Vulkan-Headers/include && \
+RUN make -C psbc -j"$(nproc)" OPENGNM_INCLUDE=../OpenGNM/include VULKAN_INCLUDE=../SPIRV-Headers/include && \
 	install -m 0755 psbc/opengnm-psbc /usr/local/bin/psbc
 
 FROM openorbisofficial/toolchain@sha256:f752d09f9d3227c729ee069f29a05450bd8fa4ef5e785c0929ab8479f7dc4e64
