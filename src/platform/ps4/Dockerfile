@@ -2,8 +2,8 @@ FROM ubuntu:20.04 AS tools
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG SHADERC_COMMIT=d5f08ae5c5a9a45165578445cbd0f9adf0223448
-ARG PSBC_COMMIT=e21e69960f387121428521988237744f6111f13f
-ARG OPENGNM_COMMIT=e442acdb6de57962fa336f09c10d34cac0df8a71
+ARG PSBC_COMMIT=a92a1228ea3a64e4be9f0e61c2a65a5aa7ffed92
+ARG OPENGNM_COMMIT=4b295ca54c82c83acf308d1c646a2dfa9ae57350
 ARG VULKAN_HEADERS_COMMIT=8c2683390a4b10c0483e3b531555dfb841e2cd84
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,10 +20,10 @@ RUN git clone https://github.com/google/shaderc.git && \
 	./utils/git-sync-deps && \
 	cmake -S . -B build -G Ninja -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release && \
 	cmake --build build --target glslc_exe --parallel && install -m 0755 build/glslc/glslc /usr/local/bin/glslc
-RUN git clone https://github.com/bizkut/psbc.git && \
+RUN git clone https://github.com/PS4-OpenGNM/opengnm-psbc.git psbc && \
 	cd psbc && git checkout "${PSBC_COMMIT}" && \
 	git apply /tmp/psbc-opengnm.patch && cd .. && \
-	git clone https://github.com/bizkut/OpenGNM.git OpenGNM && \
+	git clone https://github.com/PS4-OpenGNM/opengnm.git OpenGNM && \
 	cd OpenGNM && git checkout "${OPENGNM_COMMIT}" && cd .. && \
 	git clone https://github.com/KhronosGroup/Vulkan-Headers.git Vulkan-Headers && \
 	cd Vulkan-Headers && git checkout "${VULKAN_HEADERS_COMMIT}" && cd .. && \
@@ -32,7 +32,7 @@ RUN git clone https://github.com/bizkut/psbc.git && \
 
 FROM openorbisofficial/toolchain@sha256:f752d09f9d3227c729ee069f29a05450bd8fa4ef5e785c0929ab8479f7dc4e64
 
-ARG OPENGNM_COMMIT=e442acdb6de57962fa336f09c10d34cac0df8a71
+ARG OPENGNM_COMMIT=4b295ca54c82c83acf308d1c646a2dfa9ae57350
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates cmake git make ninja-build python3 \
 	&& rm -rf /var/lib/apt/lists/*
@@ -72,7 +72,7 @@ RUN chmod +x /lib/OpenOrbisSDK/bin/linux/create-gp4
 COPY --from=tools /usr/local/bin/glslc /usr/local/bin/glslc
 COPY --from=tools /usr/local/bin/psbc /usr/local/bin/psbc
 COPY src/platform/ps4/opengnm-orbis-stubs.patch /tmp/opengnm-orbis-stubs.patch
-RUN git clone https://github.com/bizkut/OpenGNM.git /opt/opengnm && \
+RUN git clone https://github.com/PS4-OpenGNM/opengnm.git /opt/opengnm && \
 	cd /opt/opengnm && git checkout "${OPENGNM_COMMIT}" && \
 	git apply /tmp/opengnm-orbis-stubs.patch
 RUN useradd --create-home --shell /bin/bash mgba && mkdir -p /home/mgba/src && \
