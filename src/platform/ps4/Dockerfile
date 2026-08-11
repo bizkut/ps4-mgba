@@ -64,40 +64,17 @@ ARG OPENGNM_COMMIT=4b295ca54c82c83acf308d1c646a2dfa9ae57350
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates cmake git make ninja-build python3 \
 	&& rm -rf /var/lib/apt/lists/*
-RUN cat > /lib/OpenOrbisSDK/bin/linux/create-fself <<'EOF'
-#!/bin/sh
-set -e
-in="" out="" eboot="" paid="0x3800000000000011"
-while [ $# -gt 0 ]; do
-	case "$1" in
-		-in=*) in="${1#*=}"; shift ;;
-		-out=*) out="${1#*=}"; shift ;;
-		-eboot=*) eboot="${1#*=}"; shift ;;
-		--paid) paid="$2"; shift 2 ;;
-		--paid=*) paid="${1#*=}"; shift ;;
-		*) shift ;;
-	esac
-done
-if [ -n "$eboot" ]; then
-	eboot_dir=$(dirname "$eboot")
-	eboot_base=$(basename "$eboot")
-	mkdir -p "$eboot_dir"
-	(
-		cd "$eboot_dir"
-		/lib/OpenOrbisSDK/bin/linux/create-eboot -in "$in" -paid "$paid"
-		if [ "$eboot_base" != "eboot.bin" ]; then
-			mv eboot.bin "$eboot_base"
-		fi
-	)
-fi
-if [ -n "$out" ]; then
-	cp "$in" "$out"
-fi
-EOF
-RUN chmod +x /lib/OpenOrbisSDK/bin/linux/create-fself
+COPY src/platform/ps4/create-fself /lib/OpenOrbisSDK/bin/linux/create-fself
+RUN chmod 0755 /lib/OpenOrbisSDK/bin/linux/create-fself
 COPY src/platform/ps4/create-gp4 /lib/OpenOrbisSDK/bin/linux/create-gp4
 RUN chmod +x /lib/OpenOrbisSDK/bin/linux/create-gp4
-COPY --from=tools /usr/local/bin/glslc /usr/local/bin/glslc
+COPY --from=tools /opt/build/shaderc /tmp/shaderc
+RUN cd /tmp/shaderc && rm -rf build && \
+	find . -name CMakeLists.txt -type f -exec sed -i 's/cmake_minimum_required(VERSION 3.22.1)/cmake_minimum_required(VERSION 3.16)/' {} + && \
+	cmake -S . -B build -G Ninja -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release && \
+	cmake --build build --target glslc_exe --parallel && \
+	install -m 0755 build/glslc/glslc /usr/local/bin/glslc && \
+	rm -rf /tmp/shaderc
 COPY --from=tools /usr/local/bin/psbc /usr/local/bin/psbc
 COPY src/platform/ps4/opengnm-orbis-stubs.patch /tmp/opengnm-orbis-stubs.patch
 RUN git clone https://github.com/PS4-OpenGNM/opengnm.git /opt/opengnm && \
