@@ -76,7 +76,8 @@ CFLAGS=-std=gnu11 -Wall -O2 -g $(SHARED_FLAGS)
 CXXFLAGS=-std=gnu17 -Wall -O2 -g $(SHARED_FLAGS)
 LDFLAGS=-lm -lpthread
 EOF
-&& make -C psbc -j"$(nproc)" OPENGNM_INCLUDE=../OpenGNM/include VULKAN_INCLUDE=../Vulkan-Headers/include && \
+
+RUN make -C psbc -j"$(nproc)" OPENGNM_INCLUDE=../OpenGNM/include VULKAN_INCLUDE=../Vulkan-Headers/include && \
 	install -m 0755 psbc/opengnm-psbc /usr/local/bin/psbc
 
 FROM openorbisofficial/toolchain@sha256:f752d09f9d3227c729ee069f29a05450bd8fa4ef5e785c0929ab8479f7dc4e64
